@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calcolo Cavi e Protezioni</title>
+    <!-- Configurazione PWA per iOS/Safari -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="⚡ Calcolo Linea">
+    
+    <!-- Link al Manifest inline per Android/Chrome -->
+    <link rel="manifest" id="pwa-manifest">
+
+    <style>
+        :root {
+            --primary: #007bff;
+            --success: #28a745;
+            --bg: #f8f9fa;
+            --card: #ffffff;
+            --text: #333333;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .app-container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--card);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        h1 {
+            text-align: center;
+            font-size: 1.3rem;
+            margin-top: 0;
+            color: #111;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        .segmented-control {
+            display: flex;
+            background: #eee;
+            padding: 4px;
+            border-radius: 8px;
+            gap: 2px;
+        }
+        .segmented-control button {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 12px 5px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #555;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .segmented-control button.active {
+            background: var(--card);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+            color: var(--primary);
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        input[type="range"] {
+            flex: 1;
+            height: 10px;
+            border-radius: 5px;
+            accent-color: var(--primary);
+        }
+        .value-display {
+            width: 75px;
+            text-align: right;
+            font-weight: bold;
+            font-size: 1.05rem;
+            color: var(--primary);
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .result-card {
+            padding: 14px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: inset 0 0 0 1px #ddd;
+        }
+        .card-cable {
+            background: #e7f1ff;
+            box-shadow: inset 0 0 0 2px var(--primary);
+        }
+        .card-breaker {
+            background: #e8f5e9;
+            box-shadow: inset 0 0 0 2px var(--success);
+        }
+        .result-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin: 0 0 4px 0;
+            color: #555;
+        }
+        .result-value {
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin: 4px 0;
+        }
+        .card-cable .result-value {
+            color: #004085;
+        }
+        .card-breaker .result-value {
+            color: #1b5e20;
+        }
+        .result-details {
+            grid-column: span 2;
+            background: #f1f3f5;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #495057;
+            line-height: 1.5;
+            border-left: 4px solid #6c757d;
+        }
+        .install-btn {
+            display: none;
+            width: 100%;
+            margin-top: 15px;
+            padding: 10px;
+            background: #111;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <h1>⚡ Calcolo Linea & Protezioni</h1>
+        
+        <div class="form-group">
+            <label>Tipo di Carico</label>
+            <div class="segmented-control" id="carico-group">
+                <button class="active" onclick="setCarico('civile')">🏠 Luci / Prese (C)</button>
+                <button onclick="setCarico('motore')">⚙️ Motore (D)</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Alimentazione</label>
+            <div class="segmented-control" id="impianto-group">
+                <button class="active" onclick="setImpianto('mono')">Monofase 230V</button>
+                <button onclick="setImpianto('tri')">Trifase 400V</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Tipo di Posa del Cavo</label>
+            <div class="segmented-control" id="posa-group">
+                <button class="active" onclick="setPosa('tubo')">📦 In Tubo</button>
+                <button onclick="setPosa('aria')">💨 In Aria</button>
+                <button onclick="setPosa('terra')">🌱 Interrato</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Potenza Assorbita (kW)</label>
+            <div class="slider-container">
+                <input type="range" id="kw-slider" min="0.5" max="45" step="0.5" value="3" oninput="updateCalcolo()">
+                <span class="value-display" id="kw-val">3 kW</span>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Lunghezza Linea (Metri)</label>
+            <div class="slider-container">
+                <input type="range" id="m-slider" min="5" max="150" step="5" value="25" oninput="updateCalcolo()">
+                <span class="value-display" id="m-val">25 m</span>
+            </div>
+        </div>
+
+        <div class="results-grid">
+            <div class="result-card card-breaker">
+                <p class="result-title">Interruttore (In)</p>
+                <div class="result-value" id="res-interruttore">C16</div>
+            </div>
+            <div class="result-card card-cable">
+                <p class="result-title">Sezione Cavo</p>
+                <div class="result-value" id="res-sezione">2.5 mm²</div>
+            </div>
+            <div class="result-details" id="res-dettagli">
+                Corrente calcolata: -- A<br>
+                Caduta di tensione: --
+            </div>
+        </div>
+        
+        <button id="installApp" class="install-btn">Installa sul Telefono</button>
+    </div>
+
+    <script>
+        let config = { carico: 'civile', impianto: 'mono', posa: 'tubo', kw: 3, metri: 25 };
+        const sezioniStandard = [1.5, 2.5, 4, 6, 10, 16, 25, 35, 50];
+        const interruttoriCommerciali = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125];
+
+        function setCarico(tipo) {
+            config.carico = tipo;
+            toggleButtons('carico-group', tipo === 'civile' ? 0 : 1);
+            updateCalcolo();
+        }
+
+        function setImpianto(tipo) {
+            config.impianto = tipo;
+            toggleButtons('impianto-group', tipo === 'mono' ? 0 : 1);
+            updateCalcolo();
+        }
+
+        function setPosa(tipo) {
+            config.posa = tipo;
+            const index = tipo === 'tubo' ? 0 : (tipo === 'aria' ? 1 : 2);
+            toggleButtons('posa-group', index);
+            updateCalcolo();
+        }
+
+        function toggleButtons(groupId, activeIndex) {
+            const buttons = document.getElementById(groupId).getElementsByTagName('button');
+            for(let i=0; i<buttons.length; i++) {
+                buttons[i].classList.remove('active');
+            }
+            buttons[activeIndex].classList.add('active');
+        }
+
+        function updateCalcolo() {
+            config.kw = parseFloat(document.getElementById('kw-slider').value);
+            config.metri = parseInt(document.getElementById('m-slider').value);
+            
+            document.getElementById('kw-val').innerText = config.kw + " kW";
+            document.getElementById('m-val').innerText = config.metri + " m";
+
+            let V = config.impianto === 'mono' ? 230 : 400;
+            let cosPhi = config.carico === 'motore' ? 0.8 : 0.9;
+            let Ib = 0;
+
+            if (config.impianto === 'mono') {
+                Ib = (config.kw * 1000) / (V * cosPhi);
+            } else {
+                Ib = (config.kw * 1000) / (Math.sqrt(3) * V * cosPhi);
+            }
+
+            let In = interruttoriCommerciali[interruttoriCommerciali.length - 1];
+            for (let i = 0; i < interruttoriCommerciali.length; i++) {
+                let margine = config.carico === 'motore' ? 1.15 : 1.0;
+                if (interruttoriCommerciali[i] >= (Ib * margine)) {
+                    In = interruttoriCommerciali[i];
+                    break;
+                }
+            }
+
+            let letteraCurva = config.carico === 'motore' ? 'D' : 'C';
+            let rho = 0.023; 
+            let dU_max = V * 0.04; 
+            let s_cdt = 0;
+
+            if (config.impianto === 'mono') {
+                s_cdt = (2 * rho * config.metri * Ib) / dU_max;
+            } else {
+                s_cdt = (Math.sqrt(3) * rho * config.metri * Ib * cosPhi) / dU_max;
+            }
+
+            let sezioneScelta = sezioniStandard[sezioniStandard.length - 1];
+            for (let i = 0; i < sezioniStandard.length; i++) {
+                let s = sezioniStandard[i];
+                let Iz = s * 6.5;
+                if (config.posa === 'aria') Iz = s * 8.2;
+                if (config.posa === 'terra') Iz = s * 7.2;
+                if (config.impianto === 'tri') Iz = Iz * 0.85;
+
+                if (s >= s_cdt && Iz >= In) {
+                    sezioneScelta = s;
+                    break;
+                }
+            }
+
+            let cdtReale = 0;
+            if (config.impianto === 'mono') {
+                cdtReale = ((2 * rho * config.metri * Ib) / sezioneScelta) / V * 100;
+            } else {
+                cdtReale = ((Math.sqrt(3) * rho * config.metri * Ib * cosPhi) / sezioneScelta) / V * 100;
+            }
+
+            document.getElementById('res-interruttore').innerText = letteraCurva + In;
+            document.getElementById('res-sezione').innerText = sezioneScelta + " mm²";
+            document.getElementById('res-dettagli').innerHTML =
+            `Corrente di impiego (Ib): <strong>\${Ib.toFixed(1)} A</strong><br>` +
+            `Caduta di tensione: <strong>\${cdtReale.toFixed(2)}%</strong> (Max ammessa 4%)<br>` +
+            `<em>Nota: Portata cavo stimata (Iz): \${(sezioneScelta * (config.posa==='tubo'?6.5:(config.posa==='aria'?8.2:7.2)) * (config.impianto==='tri'?0.85:1)).toFixed(1)} A.</em>`;
+        }
+        updateCalcolo();
+
+        // --- CONFIGURAZIONE PWA ---
+        const manifestObj = {
+            name: "Calcolo Linea Elettrica",
+            short_name: "Calcolo Linea",
+            start_url: window.location.href,
+            display: "standalone",
+            background_color: "#f8f9fa",
+            theme_color: "#007bff",
+            icons: [{
+                src: "data:image/svg+xml;utf8,⚡",
+                sizes: "512x512",
+                type: "image/svg+xml",
+                purpose: "any maskable"
+            }]
+        };
+        const manifestStr = JSON.stringify(manifestObj);
+        const manifestBlob = new Blob([manifestStr], {type: 'application/json'});
+        document.getElementById('pwa-manifest').setAttribute('href', URL.createObjectURL(manifestBlob));
+
+        if ('serviceWorker' in navigator) {
+            const swCode = `const CACHE_NAME = 'calc-v1'; self.addEventListener('install', e => self.skipWaiting()); self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });`;
+            const swBlob = new Blob([swCode], {type: 'application/javascript'});
+            navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+        }
+
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installApp').style.display = 'block';
+        });
+
+        document.getElementById('installApp').addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    document.getElementById('installApp').style.display = 'none';
+                }
+                deferredPrompt = null;
+            }
+        });
+    </script>
+</body>
+</html>
