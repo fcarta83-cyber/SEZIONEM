@@ -16,6 +16,8 @@
         :root {
             --primary: #007bff;
             --success: #28a745;
+            --warning: #ffc107;
+            --danger: #dc3545;
             --bg: #f8f9fa;
             --card: #ffffff;
             --text: #333333;
@@ -81,6 +83,20 @@
             background: var(--card);
             box-shadow: 0 2px 6px rgba(0,0,0,0.12);
             color: var(--primary);
+        }
+        .select-custom {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            border: 2px solid #eee;
+            background-color: #fff;
+            color: #333;
+            outline: none;
+        }
+        .select-custom:focus {
+            border-color: var(--primary);
         }
         .slider-container {
             display: flex;
@@ -148,47 +164,52 @@
             line-height: 1.5;
             border-left: 4px solid #6c757d;
         }
-        .install-btn {
-            display: none;
-            width: 100%;
-            margin-top: 15px;
-            padding: 10px;
-            background: #111;
-            color: white;
-            border: none;
-            border-radius: 8px;
+        .status-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
             font-weight: bold;
-            cursor: pointer;
+            font-size: 0.75rem;
+            color: #fff;
+            margin-top: 4px;
         }
+        .bg-ok { background-color: var(--success); }
+        .bg-ko { background-color: var(--danger); }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <h1>⚡ Calcolo Linea & Protezioni</h1>
+        <h1>⚡ Calcolo Linea & Verifiche</h1>
         
+        <div class="form-group">
+            <label>Tipo di Tensione / Impianto</label>
+            <div class="segmented-control" id="tensione-group">
+                <button class="active" onclick="setTensione('civile')">🏠 Civile (230V Mono)</button>
+                <button onclick="setTensione('industriale')">🏭 Industriale (400V Tri)</button>
+            </div>
+        </div>
+
         <div class="form-group">
             <label>Tipo di Carico</label>
             <div class="segmented-control" id="carico-group">
-                <button class="active" onclick="setCarico('civile')">🏠 Luci / Prese (C)</button>
-                <button onclick="setCarico('motore')">⚙️ Motore (D)</button>
+                <button class="active" onclick="setCarico('standard')">💡 Standard / Luci (Curva C)</button>
+                <button onclick="setCarico('motore')">⚙️ Motore (Curva D)</button>
             </div>
         </div>
 
         <div class="form-group">
-            <label>Alimentazione</label>
-            <div class="segmented-control" id="impianto-group">
-                <button class="active" onclick="setImpianto('mono')">Monofase 230V</button>
-                <button onclick="setImpianto('tri')">Trifase 400V</button>
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label>Tipo di Posa del Cavo</label>
-            <div class="segmented-control" id="posa-group">
-                <button class="active" onclick="setPosa('tubo')">📦 In Tubo</button>
-                <button onclick="setPosa('aria')">💨 In Aria</button>
-                <button onclick="setPosa('terra')">🌱 Interrato</button>
-            </div>
+            <label>Sezione Cavo (mm²)</label>
+            <select class="select-custom" id="sezione-select" onchange="updateCalcolo()">
+                <option value="1.5">1.5 mm²</option>
+                <option value="2.5" selected>2.5 mm²</option>
+                <option value="4">4 mm²</option>
+                <option value="6">6 mm²</option>
+                <option value="10">10 mm²</option>
+                <option value="16">16 mm²</option>
+                <option value="25">25 mm²</option>
+                <option value="35">35 mm²</option>
+                <option value="50">50 mm²</option>
+            </select>
         </div>
 
         <div class="form-group">
@@ -200,9 +221,9 @@
         </div>
 
         <div class="form-group">
-            <label>Lunghezza Linea (Metri)</label>
+            <label>Distanza Linea (Metri)</label>
             <div class="slider-container">
-                <input type="range" id="m-slider" min="5" max="150" step="5" value="25" oninput="updateCalcolo()">
+                <input type="range" id="m-slider" min="5" max="250" step="5" value="25" oninput="updateCalcolo()">
                 <span class="value-display" id="m-val">25 m</span>
             </div>
         </div>
@@ -213,159 +234,130 @@
                 <div class="result-value" id="res-interruttore">C16</div>
             </div>
             <div class="result-card card-cable">
-                <p class="result-title">Sezione Cavo</p>
-                <div class="result-value" id="res-sezione">2.5 mm²</div>
+                <p class="result-title">Verifica Cavo</p>
+                <div class="result-value" id="res-verifica-cavo">OK</div>
             </div>
             <div class="result-details" id="res-dettagli">
                 Corrente calcolata: -- A<br>
                 Caduta di tensione: --
             </div>
         </div>
-        
-        <button id="installApp" class="install-btn">Installa sul Telefono</button>
     </div>
 
     <script>
-        let config = { carico: 'civile', impianto: 'mono', posa: 'tubo', kw: 3, metri: 25 };
-        const sezioniStandard = [1.5, 2.5, 4, 6, 10, 16, 25, 35, 50];
-        const interruttoriCommerciali = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125];
+        let config = { tensione: 'civile', carico: 'standard', kw: 3, metri: 25 };
+        const interruttoriCommerciali =;
+
+        // Portate indicative Iz dei cavi in rame (posa in tubo protettivo standard)
+        const portateCavi = {
+            1.5: 14.5,
+            2.5: 19.5,
+            4: 26,
+            6: 34,
+            10: 46,
+            16: 61,
+            25: 80,
+            35: 99,
+            50: 119
+        };
+
+        function setTensione(tipo) {
+            config.tensione = tipo;
+            toggleButtons('tensione-group', tipo === 'civile' ? 0 : 1);
+            updateCalcolo();
+        }
 
         function setCarico(tipo) {
             config.carico = tipo;
-            toggleButtons('carico-group', tipo === 'civile' ? 0 : 1);
-            updateCalcolo();
-        }
-
-        function setImpianto(tipo) {
-            config.impianto = tipo;
-            toggleButtons('impianto-group', tipo === 'mono' ? 0 : 1);
-            updateCalcolo();
-        }
-
-        function setPosa(tipo) {
-            config.posa = tipo;
-            const index = tipo === 'tubo' ? 0 : (tipo === 'aria' ? 1 : 2);
-            toggleButtons('posa-group', index);
+            toggleButtons('carico-group', tipo === 'standard' ? 0 : 1);
             updateCalcolo();
         }
 
         function toggleButtons(groupId, activeIndex) {
-            const buttons = document.getElementById(groupId).getElementsByTagName('button');
-            for(let i=0; i<buttons.length; i++) {
-                buttons[i].classList.remove('active');
+            const container = document.getElementById(groupId);
+            const buttons = container.getElementsByTagName('button');
+            for (let i = 0; i < buttons.length; i++) {
+                if (i === activeIndex) {
+                    buttons[i].classList.add('active');
+                } else {
+                    buttons[i].classList.remove('active');
+                }
             }
-            buttons[activeIndex].classList.add('active');
         }
 
         function updateCalcolo() {
             config.kw = parseFloat(document.getElementById('kw-slider').value);
             config.metri = parseInt(document.getElementById('m-slider').value);
-            
+            const sezioneSelezionata = parseFloat(document.getElementById('sezione-select').value);
+
             document.getElementById('kw-val').innerText = config.kw + " kW";
             document.getElementById('m-val').innerText = config.metri + " m";
 
-            let V = config.impianto === 'mono' ? 230 : 400;
-            let cosPhi = config.carico === 'motore' ? 0.8 : 0.9;
-            let Ib = 0;
-
-            if (config.impianto === 'mono') {
-                Ib = (config.kw * 1000) / (V * cosPhi);
-            } else {
-                Ib = (config.kw * 1000) / (Math.sqrt(3) * V * cosPhi);
-            }
-
-            let In = interruttoriCommerciali[interruttoriCommerciali.length - 1];
-            for (let i = 0; i < interruttoriCommerciali.length; i++) {
-                let margine = config.carico === 'motore' ? 1.15 : 1.0;
-                if (interruttoriCommerciali[i] >= (Ib * margine)) {
-                    In = interruttoriCommerciali[i];
-                    break;
-                }
-            }
-
-            let letteraCurva = config.carico === 'motore' ? 'D' : 'C';
-            let rho = 0.023; 
-            let dU_max = V * 0.04; 
-            let s_cdt = 0;
-
-            if (config.impianto === 'mono') {
-                s_cdt = (2 * rho * config.metri * Ib) / dU_max;
-            } else {
-                s_cdt = (Math.sqrt(3) * rho * config.metri * Ib * cosPhi) / dU_max;
-            }
-
-            let sezioneScelta = sezioniStandard[sezioniStandard.length - 1];
-            for (let i = 0; i < sezioniStandard.length; i++) {
-                let s = sezioniStandard[i];
-                let Iz = s * 6.5;
-                if (config.posa === 'aria') Iz = s * 8.2;
-                if (config.posa === 'terra') Iz = s * 7.2;
-                if (config.impianto === 'tri') Iz = Iz * 0.85;
-
-                if (s >= s_cdt && Iz >= In) {
-                    sezioneScelta = s;
-                    break;
-                }
-            }
-
-            let cdtReale = 0;
-            if (config.impianto === 'mono') {
-                cdtReale = ((2 * rho * config.metri * Ib) / sezioneScelta) / V * 100;
-            } else {
-                cdtReale = ((Math.sqrt(3) * rho * config.metri * Ib * cosPhi) / sezioneScelta) / V * 100;
-            }
-
-            document.getElementById('res-interruttore').innerText = letteraCurva + In;
-            document.getElementById('res-sezione').innerText = sezioneScelta + " mm²";
-            document.getElementById('res-dettagli').innerHTML =
-            `Corrente di impiego (Ib): <strong>\${Ib.toFixed(1)} A</strong><br>` +
-            `Caduta di tensione: <strong>\${cdtReale.toFixed(2)}%</strong> (Max ammessa 4%)<br>` +
-            `<em>Nota: Portata cavo stimata (Iz): \${(sezioneScelta * (config.posa==='tubo'?6.5:(config.posa==='aria'?8.2:7.2)) * (config.impianto==='tri'?0.85:1)).toFixed(1)} A.</em>`;
-        }
-        updateCalcolo();
-
-        // --- CONFIGURAZIONE PWA ---
-        const manifestObj = {
-            name: "Calcolo Linea Elettrica",
-            short_name: "Calcolo Linea",
-            start_url: window.location.href,
-            display: "standalone",
-            background_color: "#f8f9fa",
-            theme_color: "#007bff",
-            icons: [{
-                src: "data:image/svg+xml;utf8,⚡",
-                sizes: "512x512",
-                type: "image/svg+xml",
-                purpose: "any maskable"
-            }]
-        };
-        const manifestStr = JSON.stringify(manifestObj);
-        const manifestBlob = new Blob([manifestStr], {type: 'application/json'});
-        document.getElementById('pwa-manifest').setAttribute('href', URL.createObjectURL(manifestBlob));
-
-        if ('serviceWorker' in navigator) {
-            const swCode = `const CACHE_NAME = 'calc-v1'; self.addEventListener('install', e => self.skipWaiting()); self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });`;
-            const swBlob = new Blob([swCode], {type: 'application/javascript'});
-            navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
-        }
-
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            document.getElementById('installApp').style.display = 'block';
-        });
-
-        document.getElementById('installApp').addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    document.getElementById('installApp').style.display = 'none';
-                }
-                deferredPrompt = null;
-            }
-        });
-    </script>
-</body>
-</html>
+            // 1. Calcolo Corrente di Impiego (Ib)
+            // Fattore di potenza (cosφ): 0.9 standard, 0.8 per motori induttivi
+Usa il codice con cautela.
+const cosPhi = config.carico === 'standard' ? 0.9 : 0.8;
+let v = config.tensione === 'civile' ? 230 : 400;
+let ib = 0;
+if (config.tensione === 'civile') {
+ib = (config.kw * 1000) / (v * cosPhi);
+} else {
+ib = (config.kw * 1000) / (Math.sqrt(3) * v * cosPhi);
+}
+// 2. Selezione dell'interruttore automatico commerciale (In >= Ib)
+let inScelta = interruttoriCommerciali[interruttoriCommerciali.length - 1];
+for (let i = 0; i < interruttoriCommerciali.length; i++) {
+if (interruttoriCommerciali[i] >= ib) {
+inScelta = interruttoriCommerciali[i];
+break;
+}
+}
+const curva = config.carico === 'standard' ? 'C' : 'D';
+// 3. Verifica della Sezione Selezionata (Portata Iz e Caduta di Tensione dV)
+const iz = portateCavi[sezioneSelezionata];
+const rho = 0.018; // Resistività rame
+let dV = 0;
+if (config.tensione === 'civile') {
+dV = (2 * rho * config.metri * ib) / sezioneSelezionata;
+} else {
+dV = (Math.sqrt(3) * rho * config.metri * ib * cosPhi) / sezioneSelezionata;
+}
+const dVPercent = (dV / v) * 100;
+// Condizioni per validità del cavo: Portata termica sufficiente e dV <= 4%
+const portataOk = iz >= inScelta;
+const cadutaOk = dVPercent <= 4.0;
+const cavoValido = portataOk && cadutaOk;
+// 4. Aggiornamento Interfaccia Grafica
+document.getElementById('res-interruttore').innerText = curva + inScelta;
+const divVerifica = document.getElementById('res-verifica-cavo');
+if (cavoValido) {
+divVerifica.innerText = "IDONEO";
+divVerifica.style.color = "#1b5e20";
+} else {
+divVerifica.innerText = "NON IDONEO";
+divVerifica.style.color = "#b71c1c";
+}
+let motiviMancanza = [];
+if (!portataOk) motiviMancanza.push(Portata insufficiente (Iz ${iz}A < In ${inScelta}A));
+if (!cadutaOk) motiviMancanza.push(Caduta > 4%);
+let notaStatus = cavoValido ? <span class="status-badge bg-ok">OK</span> : <span class="status-badge bg-ko">Verifica Fallita: ${motiviMancanza.join(', ')}</span>;
+document.getElementById('res-dettagli').innerHTML =
+• Corrente d'impiego (Ib): <strong>${ib.toFixed(1)} A</strong><br> +
+• Portata cavo scelto (Iz): <strong>${iz} A</strong><br> +
+• Caduta di tensione: <strong>${dVPercent.toFixed(2)}%</strong> (${dV.toFixed(1)} V)<br> +
+• Stato: ${notaStatus};
+}
+// Primo avvio
+window.onload = function() {
+updateCalcolo();
+};
+// Generazione del Manifest Inline per PWA
+const manifest = {
+"short_name": "Calcolo Linea",
+"name": "Calcolo Cavi e Protezioni Elettriche",
+"start_url": ".",
+"display": "standalone",
+"background_color": "#f8f9fa",
+"theme_color": "#007bff"
+};
+document.getElementById('pwa-manifest').setAttribute('href', 'data:application/manifest+json,' + JSON.stringify(manifest));
