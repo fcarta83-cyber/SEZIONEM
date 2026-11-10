@@ -125,7 +125,7 @@
             color: #555;
         }
         .result-value {
-            font-size: 1.4rem;
+            font-size: 1.3rem;
             font-weight: 800;
             margin: 4px 0;
         }
@@ -181,7 +181,7 @@
         <div class="results-grid">
             <div class="result-card card-breaker">
                 <p class="result-title">Interruttore Consigliato</p>
-                <div class="result-value" id="res-interruttore">C16</div>
+                <div class="result-value" id="res-interruttore">B16 A</div>
             </div>
             <div class="result-card card-cable">
                 <p class="result-title">Sezione Minima Cavo</p>
@@ -197,11 +197,11 @@
     <script>
         let config = { tensione: 'civile', carico: 'luci' };
 
-        // Liste standard estese per coprire portate industriali elevate (fino a 600 kW)
+        // Definizioni esplicite degli array commerciali completi per evitare eccezioni di esecuzione
         const sezioniStandard = [1.5, 2.5, 4, 6, 10, 16, 25, 35, 50, 70, 95, 120, 150, 185, 240, 300, 400, 500, 630];
         const interruttoriCommerciali =;
 
-        // Portate Iz indicative (in Ampere) per cavi FG16OR1 / unipolar in aria/passerella perforata
+        // Portate Iz indicative (in Ampere) per cavi tripolari/unipolari in aria a 30°C
         const portateCavi = {
             1.5: 22, 2.5: 30, 4: 40, 6: 51, 10: 71, 16: 95, 25: 125, 35: 155, 
             50: 188, 70: 232, 95: 282, 120: 328, 150: 379, 185: 434, 240: 514, 
@@ -211,13 +211,14 @@
         function setTensione(tipo) {
             config.tensione = tipo;
             toggleButtons('tensione-group', tipo === 'civile' ? 0 : 1);
-            // Forza coerenza logica: se civile, autolimita la potenza per sicurezza visiva (opzionale)
             updateCalcolo();
         }
 
         function setCarico(tipo) {
             config.carico = tipo;
-            const index = tipo === 'luci' ? 0 : (tipo === 'prese' ? 1 : 2);
+            let index = 0;
+            if (tipo === 'prese') index = 1;
+            if (tipo === 'motori') index = 2;
             toggleButtons('carico-group', index);
             updateCalcolo();
         }
@@ -238,26 +239,20 @@
             let kw = parseFloat(document.getElementById('kw-input').value);
             let metri = parseFloat(document.getElementById('m-input').value);
 
-            // Validazione input al volo
             if (isNaN(kw) || kw <= 0) kw = 0.1;
             if (isNaN(metri) || metri <= 0) metri = 1;
             if (kw > 600) kw = 600;
 
-            // 1. Definizione dei fattori di sfasamento (cosφ) e tensione (V)
-            let cosPhi = 0.9; // Default per luci e prese standard
-            if (config.carico === 'motori') cosPhi = 0.8; // Tipico induttivo motori
-
-            let v = config.tensione === 'civile' ? 230 : 400;
+            let cosPhi = (config.carico === 'motori') ? 0.8 : 0.9;
+            let v = (config.tensione === 'civile') ? 230 : 400;
             let ib = 0;
 
-            // Calcolo Corrente d'impiego (Ib)
             if (config.tensione === 'civile') {
                 ib = (kw * 1000) / (v * cosPhi);
             } else {
                 ib = (kw * 1000) / (Math.sqrt(3) * v * cosPhi);
             }
 
-            // 2. Scelta della Curva Magnetotermica e Taglia (In >= Ib)
             let curva = 'C';
             if (config.carico === 'luci') curva = 'B';
             if (config.carico === 'prese') curva = 'C';
@@ -271,26 +266,23 @@
                 }
             }
 
-            // Gestione fuori scala estremo (sopra gli interruttori inseriti)
             if (ib > interruttoriCommerciali[interruttoriCommerciali.length - 1]) {
+                document.getElementById('res-interruttore').innerText = "Fuori scala";
+                document.getElementById('res-sezione').innerText = "Fuori scala";
+                document.getElementById('res-dettagli').innerHTML = `<strong style="color:var(--danger);">Potenza eccessiva (${ib.toFixed(0)} A). Supera i limiti gestibili da un singolo interruttore standard.</strong>`;
+                return;
+            }
+
+            const rho = 0.018; 
+            let sezioneTrovata = sezioniStandard[sezioniStandard.length - 1];
 Usa il codice con cautela.
-document.getElementById('res-interruttore').innerText = "Vedi Note";
-document.getElementById('res-sezione').innerText = "Vedi Note";
-document.getElementById('res-dettagli').innerHTML = <strong style="color:red;">Potenza fuori scala! Corrente calcolata (${ib.toFixed(0)} A) troppo elevata per singolo cavo/interruttore standard.</strong>;
-return;
-}
-// 3. Calcolo Sezione Ottimale Consigliata (Iz >= In e dV <= 4%)
-const rho = 0.018; // Resistività rame
-let sezioneTrovata = sezioniStandard[sezioniStandard.length - 1];
 let dVPercentFinale = 0;
 let dVFinale = 0;
 let idoneo = false;
 for (let i = 0; i < sezioniStandard.length; i++) {
 let sez = sezioniStandard[i];
 let iz = portateCavi[sez];
-// Condizione 1: La portata del cavo deve proteggere l'interruttore
 if (iz >= inScelta) {
-// Condizione 2: Verifica Caduta di tensione
 let dV = 0;
 if (config.tensione === 'civile') {
 dV = (2 * rho * metri * ib) / sez;
@@ -307,7 +299,6 @@ break;
 }
 }
 }
-// Se nessuna corda singola ce la fa per caduta di tensione, mostra la massima disponibile
 if (!idoneo) {
 sezioneTrovata = sezioniStandard[sezioniStandard.length - 1];
 if (config.tensione === 'civile') {
@@ -317,24 +308,20 @@ dVFinale = (Math.sqrt(3) * rho * metri * ib * cosPhi) / sezioneTrovata;
 }
 dVPercentFinale = (dVFinale / v) * 100;
 }
-// 4. Aggiornamento Interfaccia Grafica
 document.getElementById('res-interruttore').innerText = curva + " " + inScelta + " A";
-// Gestione stringa per sezioni molto grandi
-document.getElementById('res-sezione').innerText = sezioneTrovata + " mm²" + (!idoneo ? " (*)" : "");
+document.getElementById('res-sezione').innerText = sezioneTrovata + " mm²";
 let notaAvviso = idoneo
-? <span style="color:var(--success); font-weight:bold;">✓ Linea dimensionata correttamente.</span>
-: <span style="color:var(--danger); font-weight:bold;">⚠️ Attenzione: Richiesta posa in parallelo (singolo cavo insufficiente o caduta > 4%).</span>;
+? <span style="color:var(--success); font-weight:bold;">✓ Linea idonea</span>
+: <span style="color:var(--danger); font-weight:bold;">⚠️ Caduta di tensione superiore al 4% (Necessaria posa di cavi multipli in parallelo)</span>;
 document.getElementById('res-dettagli').innerHTML =
 • Corrente di Impiego (Ib): <strong>${ib.toFixed(1)} A</strong><br> +
-• Portata Cavo Scelto (Iz): <strong>${portateCavi[sezioneTrovata]} A</strong><br> +
+• Portata Cavo (Iz): <strong>${portateCavi[sezioneTrovata]} A</strong><br> +
 • Caduta di Tensione: <strong>${dVPercentFinale.toFixed(2)}%</strong> (${dVFinale.toFixed(1)} V)<br> +
-• Note: ${notaAvviso};
+• Stato: ${notaAvviso};
 }
-// Avvio iniziale
 window.onload = function() {
 updateCalcolo();
 };
-// Generazione del Manifest Inline per PWA
 const manifest = {
 "short_name": "Calcolo Linea",
 "name": "Calcolo Cavi e Protezioni Elettriche",
