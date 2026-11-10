@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calcolo Cavi e Protezioni</title>
+    <title>Calcolo Linee Elettriche Grandi Potenze</title>
     <!-- Configurazione PWA per iOS/Safari -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -84,37 +84,18 @@
             box-shadow: 0 2px 6px rgba(0,0,0,0.12);
             color: var(--primary);
         }
-        .select-custom {
+        .input-number {
             width: 100%;
             padding: 12px;
             font-size: 1rem;
             font-weight: 600;
             border-radius: 8px;
             border: 2px solid #eee;
-            background-color: #fff;
-            color: #333;
+            box-sizing: border-box;
             outline: none;
         }
-        .select-custom:focus {
+        .input-number:focus {
             border-color: var(--primary);
-        }
-        .slider-container {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        input[type="range"] {
-            flex: 1;
-            height: 10px;
-            border-radius: 5px;
-            accent-color: var(--primary);
-        }
-        .value-display {
-            width: 75px;
-            text-align: right;
-            font-weight: bold;
-            font-size: 1.05rem;
-            color: var(--primary);
         }
         .results-grid {
             display: grid;
@@ -144,7 +125,7 @@
             color: #555;
         }
         .result-value {
-            font-size: 1.6rem;
+            font-size: 1.4rem;
             font-weight: 800;
             margin: 4px 0;
         }
@@ -164,22 +145,11 @@
             line-height: 1.5;
             border-left: 4px solid #6c757d;
         }
-        .status-badge {
-            display: inline-block;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 0.75rem;
-            color: #fff;
-            margin-top: 4px;
-        }
-        .bg-ok { background-color: var(--success); }
-        .bg-ko { background-color: var(--danger); }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <h1>⚡ Calcolo Linea & Verifiche</h1>
+        <h1>⚡ Calcolo Linea & Protezioni</h1>
         
         <div class="form-group">
             <label>Tipo di Tensione / Impianto</label>
@@ -190,52 +160,32 @@
         </div>
 
         <div class="form-group">
-            <label>Tipo di Carico</label>
+            <label>Destinazione d'Uso / Carico</label>
             <div class="segmented-control" id="carico-group">
-                <button class="active" onclick="setCarico('standard')">💡 Standard / Luci (Curva C)</button>
-                <button onclick="setCarico('motore')">⚙️ Motore (Curva D)</button>
+                <button class="active" onclick="setCarico('luci')">💡 Luci (B)</button>
+                <button onclick="setCarico('prese')">🔌 Prese (C)</button>
+                <button onclick="setCarico('motori')">⚙️ Motori (D)</button>
             </div>
         </div>
 
         <div class="form-group">
-            <label>Sezione Cavo (mm²)</label>
-            <select class="select-custom" id="sezione-select" onchange="updateCalcolo()">
-                <option value="1.5">1.5 mm²</option>
-                <option value="2.5" selected>2.5 mm²</option>
-                <option value="4">4 mm²</option>
-                <option value="6">6 mm²</option>
-                <option value="10">10 mm²</option>
-                <option value="16">16 mm²</option>
-                <option value="25">25 mm²</option>
-                <option value="35">35 mm²</option>
-                <option value="50">50 mm²</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label>Potenza Assorbita (kW)</label>
-            <div class="slider-container">
-                <input type="range" id="kw-slider" min="0.5" max="45" step="0.5" value="3" oninput="updateCalcolo()">
-                <span class="value-display" id="kw-val">3 kW</span>
-            </div>
+            <label>Potenza Assorbita (kW) - Max 600kW</label>
+            <input type="number" id="kw-input" min="0.1" max="600" step="0.5" value="3" class="input-number" oninput="updateCalcolo()">
         </div>
 
         <div class="form-group">
             <label>Distanza Linea (Metri)</label>
-            <div class="slider-container">
-                <input type="range" id="m-slider" min="5" max="250" step="5" value="25" oninput="updateCalcolo()">
-                <span class="value-display" id="m-val">25 m</span>
-            </div>
+            <input type="number" id="m-input" min="1" max="2000" step="5" value="25" class="input-number" oninput="updateCalcolo()">
         </div>
 
         <div class="results-grid">
             <div class="result-card card-breaker">
-                <p class="result-title">Interruttore (In)</p>
+                <p class="result-title">Interruttore Consigliato</p>
                 <div class="result-value" id="res-interruttore">C16</div>
             </div>
             <div class="result-card card-cable">
-                <p class="result-title">Verifica Cavo</p>
-                <div class="result-value" id="res-verifica-cavo">OK</div>
+                <p class="result-title">Sezione Minima Cavo</p>
+                <div class="result-value" id="res-sezione">2.5 mm²</div>
             </div>
             <div class="result-details" id="res-dettagli">
                 Corrente calcolata: -- A<br>
@@ -245,31 +195,30 @@
     </div>
 
     <script>
-        let config = { tensione: 'civile', carico: 'standard', kw: 3, metri: 25 };
+        let config = { tensione: 'civile', carico: 'luci' };
+
+        // Liste standard estese per coprire portate industriali elevate (fino a 600 kW)
+        const sezioniStandard = [1.5, 2.5, 4, 6, 10, 16, 25, 35, 50, 70, 95, 120, 150, 185, 240, 300, 400, 500, 630];
         const interruttoriCommerciali =;
 
-        // Portate indicative Iz dei cavi in rame (posa in tubo protettivo standard)
+        // Portate Iz indicative (in Ampere) per cavi FG16OR1 / unipolar in aria/passerella perforata
         const portateCavi = {
-            1.5: 14.5,
-            2.5: 19.5,
-            4: 26,
-            6: 34,
-            10: 46,
-            16: 61,
-            25: 80,
-            35: 99,
-            50: 119
+            1.5: 22, 2.5: 30, 4: 40, 6: 51, 10: 71, 16: 95, 25: 125, 35: 155, 
+            50: 188, 70: 232, 95: 282, 120: 328, 150: 379, 185: 434, 240: 514, 
+            300: 593, 400: 680, 500: 790, 630: 920
         };
 
         function setTensione(tipo) {
             config.tensione = tipo;
             toggleButtons('tensione-group', tipo === 'civile' ? 0 : 1);
+            // Forza coerenza logica: se civile, autolimita la potenza per sicurezza visiva (opzionale)
             updateCalcolo();
         }
 
         function setCarico(tipo) {
             config.carico = tipo;
-            toggleButtons('carico-group', tipo === 'standard' ? 0 : 1);
+            const index = tipo === 'luci' ? 0 : (tipo === 'prese' ? 1 : 2);
+            toggleButtons('carico-group', index);
             updateCalcolo();
         }
 
@@ -286,68 +235,102 @@
         }
 
         function updateCalcolo() {
-            config.kw = parseFloat(document.getElementById('kw-slider').value);
-            config.metri = parseInt(document.getElementById('m-slider').value);
-            const sezioneSelezionata = parseFloat(document.getElementById('sezione-select').value);
+            let kw = parseFloat(document.getElementById('kw-input').value);
+            let metri = parseFloat(document.getElementById('m-input').value);
 
-            document.getElementById('kw-val').innerText = config.kw + " kW";
-            document.getElementById('m-val').innerText = config.metri + " m";
+            // Validazione input al volo
+            if (isNaN(kw) || kw <= 0) kw = 0.1;
+            if (isNaN(metri) || metri <= 0) metri = 1;
+            if (kw > 600) kw = 600;
 
-            // 1. Calcolo Corrente di Impiego (Ib)
-            // Fattore di potenza (cosφ): 0.9 standard, 0.8 per motori induttivi
+            // 1. Definizione dei fattori di sfasamento (cosφ) e tensione (V)
+            let cosPhi = 0.9; // Default per luci e prese standard
+            if (config.carico === 'motori') cosPhi = 0.8; // Tipico induttivo motori
+
+            let v = config.tensione === 'civile' ? 230 : 400;
+            let ib = 0;
+
+            // Calcolo Corrente d'impiego (Ib)
+            if (config.tensione === 'civile') {
+                ib = (kw * 1000) / (v * cosPhi);
+            } else {
+                ib = (kw * 1000) / (Math.sqrt(3) * v * cosPhi);
+            }
+
+            // 2. Scelta della Curva Magnetotermica e Taglia (In >= Ib)
+            let curva = 'C';
+            if (config.carico === 'luci') curva = 'B';
+            if (config.carico === 'prese') curva = 'C';
+            if (config.carico === 'motori') curva = 'D';
+
+            let inScelta = interruttoriCommerciali[interruttoriCommerciali.length - 1];
+            for (let i = 0; i < interruttoriCommerciali.length; i++) {
+                if (interruttoriCommerciali[i] >= ib) {
+                    inScelta = interruttoriCommerciali[i];
+                    break;
+                }
+            }
+
+            // Gestione fuori scala estremo (sopra gli interruttori inseriti)
+            if (ib > interruttoriCommerciali[interruttoriCommerciali.length - 1]) {
 Usa il codice con cautela.
-const cosPhi = config.carico === 'standard' ? 0.9 : 0.8;
-let v = config.tensione === 'civile' ? 230 : 400;
-let ib = 0;
-if (config.tensione === 'civile') {
-ib = (config.kw * 1000) / (v * cosPhi);
-} else {
-ib = (config.kw * 1000) / (Math.sqrt(3) * v * cosPhi);
+document.getElementById('res-interruttore').innerText = "Vedi Note";
+document.getElementById('res-sezione').innerText = "Vedi Note";
+document.getElementById('res-dettagli').innerHTML = <strong style="color:red;">Potenza fuori scala! Corrente calcolata (${ib.toFixed(0)} A) troppo elevata per singolo cavo/interruttore standard.</strong>;
+return;
 }
-// 2. Selezione dell'interruttore automatico commerciale (In >= Ib)
-let inScelta = interruttoriCommerciali[interruttoriCommerciali.length - 1];
-for (let i = 0; i < interruttoriCommerciali.length; i++) {
-if (interruttoriCommerciali[i] >= ib) {
-inScelta = interruttoriCommerciali[i];
+// 3. Calcolo Sezione Ottimale Consigliata (Iz >= In e dV <= 4%)
+const rho = 0.018; // Resistività rame
+let sezioneTrovata = sezioniStandard[sezioniStandard.length - 1];
+let dVPercentFinale = 0;
+let dVFinale = 0;
+let idoneo = false;
+for (let i = 0; i < sezioniStandard.length; i++) {
+let sez = sezioniStandard[i];
+let iz = portateCavi[sez];
+// Condizione 1: La portata del cavo deve proteggere l'interruttore
+if (iz >= inScelta) {
+// Condizione 2: Verifica Caduta di tensione
+let dV = 0;
+if (config.tensione === 'civile') {
+dV = (2 * rho * metri * ib) / sez;
+} else {
+dV = (Math.sqrt(3) * rho * metri * ib * cosPhi) / sez;
+}
+let dVPercent = (dV / v) * 100;
+if (dVPercent <= 4.0) {
+sezioneTrovata = sez;
+dVPercentFinale = dVPercent;
+dVFinale = dV;
+idoneo = true;
 break;
 }
 }
-const curva = config.carico === 'standard' ? 'C' : 'D';
-// 3. Verifica della Sezione Selezionata (Portata Iz e Caduta di Tensione dV)
-const iz = portateCavi[sezioneSelezionata];
-const rho = 0.018; // Resistività rame
-let dV = 0;
+}
+// Se nessuna corda singola ce la fa per caduta di tensione, mostra la massima disponibile
+if (!idoneo) {
+sezioneTrovata = sezioniStandard[sezioniStandard.length - 1];
 if (config.tensione === 'civile') {
-dV = (2 * rho * config.metri * ib) / sezioneSelezionata;
+dVFinale = (2 * rho * metri * ib) / sezioneTrovata;
 } else {
-dV = (Math.sqrt(3) * rho * config.metri * ib * cosPhi) / sezioneSelezionata;
+dVFinale = (Math.sqrt(3) * rho * metri * ib * cosPhi) / sezioneTrovata;
 }
-const dVPercent = (dV / v) * 100;
-// Condizioni per validità del cavo: Portata termica sufficiente e dV <= 4%
-const portataOk = iz >= inScelta;
-const cadutaOk = dVPercent <= 4.0;
-const cavoValido = portataOk && cadutaOk;
+dVPercentFinale = (dVFinale / v) * 100;
+}
 // 4. Aggiornamento Interfaccia Grafica
-document.getElementById('res-interruttore').innerText = curva + inScelta;
-const divVerifica = document.getElementById('res-verifica-cavo');
-if (cavoValido) {
-divVerifica.innerText = "IDONEO";
-divVerifica.style.color = "#1b5e20";
-} else {
-divVerifica.innerText = "NON IDONEO";
-divVerifica.style.color = "#b71c1c";
-}
-let motiviMancanza = [];
-if (!portataOk) motiviMancanza.push(Portata insufficiente (Iz ${iz}A < In ${inScelta}A));
-if (!cadutaOk) motiviMancanza.push(Caduta > 4%);
-let notaStatus = cavoValido ? <span class="status-badge bg-ok">OK</span> : <span class="status-badge bg-ko">Verifica Fallita: ${motiviMancanza.join(', ')}</span>;
+document.getElementById('res-interruttore').innerText = curva + " " + inScelta + " A";
+// Gestione stringa per sezioni molto grandi
+document.getElementById('res-sezione').innerText = sezioneTrovata + " mm²" + (!idoneo ? " (*)" : "");
+let notaAvviso = idoneo
+? <span style="color:var(--success); font-weight:bold;">✓ Linea dimensionata correttamente.</span>
+: <span style="color:var(--danger); font-weight:bold;">⚠️ Attenzione: Richiesta posa in parallelo (singolo cavo insufficiente o caduta > 4%).</span>;
 document.getElementById('res-dettagli').innerHTML =
-• Corrente d'impiego (Ib): <strong>${ib.toFixed(1)} A</strong><br> +
-• Portata cavo scelto (Iz): <strong>${iz} A</strong><br> +
-• Caduta di tensione: <strong>${dVPercent.toFixed(2)}%</strong> (${dV.toFixed(1)} V)<br> +
-• Stato: ${notaStatus};
+• Corrente di Impiego (Ib): <strong>${ib.toFixed(1)} A</strong><br> +
+• Portata Cavo Scelto (Iz): <strong>${portateCavi[sezioneTrovata]} A</strong><br> +
+• Caduta di Tensione: <strong>${dVPercentFinale.toFixed(2)}%</strong> (${dVFinale.toFixed(1)} V)<br> +
+• Note: ${notaAvviso};
 }
-// Primo avvio
+// Avvio iniziale
 window.onload = function() {
 updateCalcolo();
 };
